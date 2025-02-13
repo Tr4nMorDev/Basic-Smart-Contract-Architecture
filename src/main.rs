@@ -3,7 +3,7 @@ mod transaction;
 
 use contract::{Contract, ContractStatus };
 use contract::ContractAction;
-use transaction::Transaction;
+use transaction::{Transaction, TransactionStatus};
 
 use std::error::Error;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -50,24 +50,27 @@ impl Blockchain {
     }
     
     fn transfer(&mut self , from_id : u32 , to_id : u32 , balance : u128) -> Result<(),String>{
-        {
-            if !self.check_contract_status_Active(&from_id) {
-                return Err("The contracts is not active".to_string());
-            }
-            let from = self.contracts.get_mut(&from_id).ok_or("Sender contract not found")?;
-            if from.sodu < balance {
-                return Err("Not enough money in account".to_string());
-            }
-            from.sodu -= balance;
-        } 
-    
-        {
-            if !self.check_contract_status_Active(&to_id){
-                return Err("Contracts is not active".to_string());
-            }
-            let to = self.contracts.get_mut(&to_id).ok_or("Receiver contract not found")?;
-            to.sodu += balance;
-        } 
+        
+        if !self.check_contract_status_Active(&from_id) {
+            return Err("The contracts is not active".to_string());
+        }
+        if !self.check_contract_status_Active(&to_id){
+            return Err("Contracts is not active".to_string());
+        }
+        let from = self.contracts.get_mut(&from_id).ok_or("Sender contract not found")?;
+        if from.sodu < balance {
+            return Err("Not enough money in account".to_string());
+        }
+        from.sodu -= balance;
+
+        let to = self.contracts.get_mut(&to_id).ok_or("Receiver contract not found")?;
+        to.sodu += balance;
+        let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+        self.transactions.push(Transaction { id: self.next_transaction_id, from_id: from_id, to_id: to_id, amount: balance, status:  TransactionStatus::Completed, time_excute: now });
+        self.next_transaction_id += 1 ;
         Ok(())
     }
     fn freeze_contract(&mut self , pre : u32) -> Result<(),String>{
@@ -93,6 +96,11 @@ impl Blockchain {
             println!("i : {} , contract : {:?}",i,a);
         }
     }
+    fn display_transactions(&self){
+        for (i,a) in self.transactions.iter().enumerate(){
+            println!("{:?}" , a)
+        }
+    }
     // fn display_transactions();
 }
 
@@ -107,6 +115,7 @@ fn main() -> Result<() , Box<dyn Error>>{
     blockchain.freeze_contract(1)?;
 
     blockchain.display_contracts();
+    blockchain.display_transactions();
     // blockchain.display_transactions();
     Ok(())
 
